@@ -1,2 +1,4 @@
 # WMSqw
-simple script for requests a WMS server
+simple bash script for requests a WMS server
+
+uses bash and bc
