@@ -1,0 +1,226 @@
+#/bin/bash
+
+# variaveis bbox, width, height, layers
+# script de multiplas conexoes wget
+
+#    http://localhost:8080/geoserver/wms?
+#    request=GetMap
+#    &service=WMS
+#    &version=1.1.1
+#    &styles=population
+#    &srs=EPSG%3A4326
+#    &format=image%2Fpng
+#    &layers=topp%3Astates
+#    &bbox=-145.15104058007,21.731919794922,-57.154894212888,58.961058642578&
+#    &width=780
+#    &height=330
+
+# https://docs.geoserver.org/stable/en/user/services/wms/basics.html
+# The WMS 1.3.0 specification mandates using the axis ordering as defined in the EPSG database. 
+# For instance, for EPSG:4326 the axis ordering is latitude/longitude, or north/east. 
+# This is contrary to the fact that most spatial data is usually in longitude/latitude, or east/north.
+
+# fazer em  1) randomicos, 2) escalas 1, 2, 4, 8, 16 etc, 3) folhas tamanho igual
+# usando multi-layers entre virgulas
+
+# bash does not float numbers, using bc for it 
+
+# old random 997 secure generator
+
+rands="0.000001";
+
+function myrandom {
+
+        rands=`echo "scale=6; a = $rands * 997 ; scale=0; b = a / 1.0; scale=7; (a - b)" | bc -l`
+
+}
+
+function myrequest {
+
+REQUEST="http://localhost:8080/geoserver/wms\
+\?request=GetMap\
+\&service=WMS\
+\&version=1.1.1\
+\&styles=population\
+\&srs=EPSG.4326\
+\&format=image.png\
+\&width=${WIDTH}\
+\&height=${HEIGHT}\
+\&layers=${LAYER}\
+\&bbox=${BBOX}"
+
+echo "/usr/bin/time -f \"\# real %E, user %U, syst %S \" wget \"${REQUEST}\" " 
+
+}
+
+# test arguments
+
+if [ "${#}" != "12" ]; then
+	echo " WMSqw Y0 X0 Ys Xs dy dx width height layers mode many seed "\
+			"\n y0, decimal geographics lower left corner " \
+			"\n x0, decimal geographics lower left corner " \
+			"\n ys, decimal geographics total area size in S-N " \
+			"\n xs, decimal geographics total area size in W-E " \
+			"\n dy, decimal geographics map size in S-N " \
+			"\n dx, decimal geographics map size in W-E " \
+			"\n width, widht of image " \
+			"\n height, height of image " \
+			"\n layers, layers separated by comma" \
+			"\n mode, 1 random dy by dx, 2 scaled in halves, 3 pannels many x many"\
+			"\n many, quantity of requests"\
+			"\n seed, pseudo random starter sequence"\
+			"\n  X is Longitude and Y is Latitude" \
+			"\n\nagsb@cprm.gov.br" ; 
+	exit 1
+fi 
+
+# Y0 X0 Ys Xx dy dx width height layers mode many seed
+
+y0=$1
+x0=$2
+ys=$3
+xs=$4
+dy=$5
+dx=$6
+width=$7
+height=$8
+layers=$9
+mode=${10}
+many=${11}
+rands=${12}
+
+ now=`date -u`
+ echo "# ${now}"
+ echo "# ${*}"
+ echo "# y0 ==> ${y0}"
+ echo "# x0 ==> ${x0}"
+ echo "# ys ==> ${ys}"
+ echo "# xs ==> ${xs}"
+ echo "# dy ==> ${dy}"
+ echo "# dx ==> ${dx}"
+ echo "# width ==> ${width}"
+ echo "# height ==> ${height}"
+ echo "# layers ==> ${layers}"
+ echo "# mode ==> ${mode}"
+ echo "# many ==> ${many}"
+ echo "# seed ==> ${rands}"
+
+# sane tests
+
+if [ "${many}" -lt 1 ]; then
+	many="1"
+fi
+
+# could restrict lowercase variables before assigns to uppercase variables
+
+# else default assigns
+
+WIDTH="${width}"
+
+HEIGHT="${height}"
+
+LAYER="${layers}"
+
+# still loops
+
+# if mode -- 1, full random
+
+if [ "${mode}" = "1" ]; then
+
+for i in `seq 1 $many`; do
+
+	myrandom
+
+	ry=${rands}
+
+	myrandom
+ 
+	rx=${rands}
+
+	ry1=`echo "scale=6; (${y0} + (${ys} - ${dy}) * ${ry})" | bc -l` 
+
+	rx1=`echo "scale=6; (${x0} + (${xs} - ${dx}) * ${rx})" | bc -l` 
+
+	ry2=`echo "scale=6; (${ry1} + ${dy})" | bc -l`
+
+	rx2=`echo "scale=6; (${rx1} + ${dx})" | bc -l`
+
+	BBOX="${ry1},${rx1},${ry2},${rx2}"
+
+	myrequest
+
+done
+
+fi
+
+# if mode -- 2, full zoom, many is halves in sequence
+
+if [ "${mode}" = "2" ]; then
+
+# find the center
+
+	ry0=`echo "scale=6; scale=6; (${y0} + (${ys} / 2.0) ) " | bc -l` 
+
+	rx0=`echo "scale=6; scale=6; (${x0} + (${xs} / 2.0) )" | bc -l` 
+
+# loop zooming
+
+for i in `seq 1 $many`; do
+
+	dy=`echo "scale=6; (${ys} / ${i})" | bc -l`
+
+	dx=`echo "scale=6; (${xs} / ${i})" | bc -l`
+
+	ry1=`echo "scale=6; (${ry0} - ${dy})" | bc -l`
+
+	rx1=`echo "scale=6; (${rx0} - ${dx})" | bc -l`
+
+	ry2=`echo "scale=6; (${ry0} + ${dy})" | bc -l`
+
+	rx2=`echo "scale=6; (${rx0} + ${dx})" | bc -l`
+
+	BBOX="${ry1},${rx1},${ry2},${rx2}"
+
+	myrequest
+
+done
+
+fi
+
+# if mode -- 3, full pannels, many by many
+
+if [ "${mode}" = "3" ]; then
+
+# find the center
+
+	dy=`echo "scale=6; (${ys} / ${many} ) " | bc -l` 
+
+	dx=`echo "scale=6; (${xs} / ${many} ) " | bc -l` 
+
+# loop zooming
+
+for i in `seq 1 $many`; do
+
+	ry1=`echo "scale=6; (${y0} + ${dy} * (${i} - 1) )" | bc -l`
+
+for j in `seq 1 $many`; do
+
+	rx1=`echo "scale=6; (${x0} + ${dx} * (${j} - 1) )" | bc -l`
+
+	ry2=`echo "scale=6; (${ry1} + ${dy})" | bc -l`
+
+	rx2=`echo "scale=6; (${rx1} + ${dx})" | bc -l`
+
+	BBOX="${ry1},${rx1},${ry2},${rx2}"
+
+	myrequest
+
+done
+
+done
+
+fi
+
+# all done, try again Sam
+
+
