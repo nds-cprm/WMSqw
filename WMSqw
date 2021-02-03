@@ -1,8 +1,11 @@
 #/bin/bash
-
-# variaveis bbox, width, height, layers
-# script de multiplas conexoes wget
-
+#
+# WMSqw
+#
+# este script gera script de multiplas conexoes wget
+#
+# by: alvaro gomes Sobral barcellos
+#
 #    http://localhost:8080/geoserver/wms?
 #    request=GetMap
 #    &service=WMS
@@ -11,7 +14,7 @@
 #    &srs=EPSG%3A4326
 #    &format=image%2Fpng
 #    &layers=topp%3Astates
-#    &bbox=-145.15104058007,21.731919794922,-57.154894212888,58.961058642578&
+#    &bbox=-145.15104058007,21.731919794922,-57.154894212888,58.96105864257
 #    &width=780
 #    &height=330
 
@@ -20,7 +23,10 @@
 # For instance, for EPSG:4326 the axis ordering is latitude/longitude, or north/east. 
 # This is contrary to the fact that most spatial data is usually in longitude/latitude, or east/north.
 
-# fazer em  1) randomicos, 2) escalas 1, 2, 4, 8, 16 etc, 3) folhas tamanho igual
+# fazer em  
+# 1) randomicos usando dx e dy, many vezes
+# 2) escalas usando 1, 2, 4, 8, 16 etc, 
+# 3) folhas tamanho igual
 # usando multi-layers entre virgulas
 
 # bash does not float numbers, using bc for it 
@@ -34,6 +40,8 @@ function myrandom {
         rands=`echo "scale=6; a = $rands * 997 ; scale=0; b = a / 1.0; scale=7; (a - b)" | bc -l`
 
 }
+
+# does write out the request
 
 function myrequest {
 
@@ -109,6 +117,7 @@ rands=${12}
 
 if [ "${many}" -lt 1 ]; then
 	many="1"
+ 	echo "# changed many ==> ${many}"
 fi
 
 # could restrict lowercase variables before assigns to uppercase variables
@@ -126,6 +135,11 @@ LAYER="${layers}"
 # if mode -- 1, full random
 
 if [ "${mode}" = "1" ]; then
+
+if [ "${many}" -gt 1024 ]; then
+	many="1024"
+ 	echo "# changed many ==> ${many}"
+fi
 
 for i in `seq 1 $many`; do
 
@@ -156,6 +170,13 @@ fi
 # if mode -- 2, full zoom, many is halves in sequence
 
 if [ "${mode}" = "2" ]; then
+
+# limit zoom 1:1024
+
+if [ "${many}" -gt 10 ]; then
+	many="10"
+ 	echo "# changed many ==> ${many}"
+fi
 
 # find the center
 
@@ -190,6 +211,13 @@ fi
 # if mode -- 3, full pannels, many by many
 
 if [ "${mode}" = "3" ]; then
+
+# limit pannels 1/16
+
+if [ "${many}" -gt 16 ]; then
+	many="16"
+ 	echo "# changed many ==> ${many}"
+fi
 
 # find the center
 
